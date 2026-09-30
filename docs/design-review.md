@@ -24,11 +24,11 @@ This product manages signals and trading risk, so CRM patterns are useful for in
 
 | Color | Meaning |
 | --- | --- |
-| Blue | Waiting or incoming signal |
-| Violet | Open position |
-| Green | Connected, filled, or positive P&L |
-| Amber | Review or degraded status |
-| Red | Rejected, failed, negative P&L, or destructive action |
+| Cobalt blue | Waiting or incoming signal |
+| Lavender | Open position / exposure |
+| Acid green | Connected, live, filled, or positive P&L |
+| Warm amber | Review or degraded status |
+| Coral | Rejected, failed, negative P&L, or destructive action |
 | Neutral | Historical, reference, or inactive information |
 
 Every colored status also has a text label. Profit and loss values include a sign.
