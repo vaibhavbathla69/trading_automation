@@ -19,6 +19,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { LogsPage } from './pages/LogsPage'
 import './styles.css'
 import './redesign.css'
+import './art-direction.css'
 
 interface AppData {
   signals: Signal[]
