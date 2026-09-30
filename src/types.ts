@@ -121,6 +121,7 @@ export interface TradingSettings {
   sizingMethod: 'LOTS' | 'CAPITAL'
   fixedLots: number
   capitalPerTrade: number
+  maxCapitalPerTrade: number
   maxTradesPerDay: number
   maxSimultaneousPositions: number
   maxCapitalDeployed: number
@@ -135,6 +136,13 @@ export interface TradingSettings {
   forceSquareOff: boolean
   squareOffTime: string
   allowOvernight: boolean
+}
+
+export interface UserProfile {
+  fullName: string
+  email: string
+  phone: string
+  timezone: string
 }
 
 export interface SystemLog {

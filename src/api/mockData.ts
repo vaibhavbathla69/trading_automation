@@ -113,7 +113,7 @@ export const mockSystemStatus: SystemStatus = {
 
 export const mockSettings: TradingSettings = {
   tradingEnabled: true, mode: 'PAPER', broker: 'Angel One', telegramSource: 'Mani Telegram',
-  sizingMethod: 'LOTS', fixedLots: 2, capitalPerTrade: 15000, maxTradesPerDay: 8,
+  sizingMethod: 'LOTS', fixedLots: 2, capitalPerTrade: 15000, maxCapitalPerTrade: 20000, maxTradesPerDay: 8,
   maxSimultaneousPositions: 3, maxCapitalDeployed: 75000, maxDailyLoss: 5000,
   maxEntrySlippagePercent: 1, maxSignalAgeSeconds: 90, rejectDuplicateSignals: true,
   maxEntryDistancePercent: 2, skipMovedPrice: true, orderType: 'MARKET', targetRule: 'PARTIAL_FIRST',

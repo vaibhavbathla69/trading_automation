@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import { Activity, BookOpenText, ChartNoAxesCombined, CircleStop, LayoutDashboard, ListFilter, Menu, Radio, Settings2, X } from 'lucide-react'
-import type { AdminAction, Position, Signal, SystemLog, SystemStatus, Trade, TradingSettings } from './types'
+import { Activity, BookOpenText, ChartNoAxesCombined, CircleStop, LayoutDashboard, ListFilter, Menu, Radio, Settings2, UserRound, X } from 'lucide-react'
+import type { AdminAction, Position, Signal, SystemLog, SystemStatus, Trade, TradingSettings, UserProfile } from './types'
 import { signalsApi } from './api/signals'
 import { positionsApi } from './api/positions'
 import { tradesApi } from './api/trades'
 import { settingsApi } from './api/settings'
+import { profileApi } from './api/profile'
 import { systemApi } from './api/system'
 import { realtimeApi } from './api/realtime'
 import { date, timeSeconds } from './lib/format'
@@ -16,6 +17,7 @@ import { SignalsPage } from './pages/SignalsPage'
 import { PositionsPage } from './pages/PositionsPage'
 import { TradesPage } from './pages/TradesPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { LogsPage } from './pages/LogsPage'
 import './styles.css'
 import './redesign.css'
@@ -28,7 +30,9 @@ interface AppData {
   logs: SystemLog[]
   status: SystemStatus
   settings: TradingSettings
+  profile: UserProfile
   setSettings: (settings: TradingSettings) => void
+  setProfile: (profile: UserProfile) => void
   requestAction: (action: AdminAction) => void
   openSignal: (signal: Signal) => void
   openPosition: (position: Position) => void
@@ -50,7 +54,8 @@ const primaryNav = [
 ]
 const secondaryNav = [
   { to: '/logs', label: 'System logs', icon: ListFilter },
-  { to: '/settings', label: 'Trading rules', icon: Settings2 },
+  { to: '/settings', label: 'Settings', icon: Settings2 },
+  { to: '/profile', label: 'Profile', icon: UserRound },
 ]
 const titleByPath: Record<string, { title: string; subtitle: string }> = {
   '/': { title: 'Trading desk', subtitle: 'Today’s positions, signals, and exceptions.' },
@@ -58,11 +63,12 @@ const titleByPath: Record<string, { title: string; subtitle: string }> = {
   '/positions': { title: 'Positions', subtitle: 'Open exposure and execution details.' },
   '/trades': { title: 'History', subtitle: 'Closed trades and their outcomes.' },
   '/logs': { title: 'System logs', subtitle: 'Operational events in time order.' },
-  '/settings': { title: 'Trading rules', subtitle: 'Values enforced by the trading service.' },
+  '/settings': { title: 'Settings', subtitle: 'Trading controls and risk limits.' },
+  '/profile': { title: 'Profile', subtitle: 'Your personal details.' },
 }
 
 function AppShell() {
-  const [data, setData] = useState<Omit<AppData, 'setSettings' | 'requestAction' | 'openSignal' | 'openPosition' | 'notice'> | null>(null)
+  const [data, setData] = useState<Omit<AppData, 'setSettings' | 'setProfile' | 'requestAction' | 'openSignal' | 'openPosition' | 'notice'> | null>(null)
   const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null)
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
   const [pendingAction, setPendingAction] = useState<AdminAction | null>(null)
@@ -74,9 +80,9 @@ function AppShell() {
 
   useEffect(() => {
     let active = true
-    Promise.all([signalsApi.list(), positionsApi.list(), tradesApi.list(), systemApi.getLogs(), systemApi.getStatus(), settingsApi.get()])
-      .then(([signals, positions, trades, logs, status, settings]) => {
-        if (active) setData({ signals, positions, trades, logs, status, settings })
+    Promise.all([signalsApi.list(), positionsApi.list(), tradesApi.list(), systemApi.getLogs(), systemApi.getStatus(), settingsApi.get(), profileApi.get()])
+      .then(([signals, positions, trades, logs, status, settings, profile]) => {
+        if (active) setData({ signals, positions, trades, logs, status, settings, profile })
       })
       .catch(() => { if (active) setLoadError(true) })
     const unsubscribe = realtimeApi.subscribe(event => {
@@ -126,9 +132,19 @@ function AppShell() {
     try {
       const saved = await settingsApi.update(settings)
       setData(prev => prev ? { ...prev, settings: saved } : prev)
-      setToast('Rules saved to the mock API.')
+      setToast('Rules saved in this browser. No trading service was changed.')
     } catch {
       setToast('Could not save trading rules.')
+    }
+  }
+
+  async function saveProfile(profile: UserProfile) {
+    try {
+      const saved = await profileApi.update(profile)
+      setData(prev => prev ? { ...prev, profile: saved } : prev)
+      setToast('Profile saved in this browser.')
+    } catch {
+      setToast('Could not save profile. Check browser storage settings.')
     }
   }
 
@@ -147,7 +163,7 @@ function AppShell() {
     {mobileNav && <div className="mobile-scrim" onClick={() => setMobileNav(false)} />}
     <div className="main-column">
       <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setMobileNav(true)} aria-label="Open menu"><Menu size={21} /></button><span>MANI SIGNALS</span><span className="topbar-slash">/</span><strong>{page.title}</strong></div><div className="topbar-right"><span className="demo-pill">MOCK DATA</span><span className="topbar-clock">{timeSeconds(clock)} IST</span><button className="emergency-top" onClick={() => setPendingAction('EMERGENCY_STOP')}><CircleStop size={15} /> Emergency stop</button></div></header>
-      <main className="content">{loadError ? <ErrorState title="Trading data unavailable" description="Refresh when the service is available." /> : !data ? <LoadingState /> : <DataContext.Provider value={{ ...data, setSettings: saveSettings, requestAction: setPendingAction, openSignal: setSelectedSignal, openPosition: setSelectedPosition, notice: setToast }}><div className="page-heading"><div><div className="page-kicker">{location.pathname === '/' ? `SESSION / ${date(data.status.sessionDate).toUpperCase()}` : 'MANI SIGNALS / WORKSPACE'}</div><h1>{page.title}</h1><p>{page.subtitle}</p></div></div><Routes><Route path="/" element={<DashboardPage />} /><Route path="/signals" element={<SignalsPage />} /><Route path="/positions" element={<PositionsPage />} /><Route path="/trades" element={<TradesPage />} /><Route path="/logs" element={<LogsPage />} /><Route path="/settings" element={<SettingsPage />} /><Route path="*" element={<EmptyState title="Page not found" description="Choose a section from the navigation." />} /></Routes></DataContext.Provider>}</main>
+      <main className="content">{loadError ? <ErrorState title="Trading data unavailable" description="Refresh when the service is available." /> : !data ? <LoadingState /> : <DataContext.Provider value={{ ...data, setSettings: saveSettings, setProfile: saveProfile, requestAction: setPendingAction, openSignal: setSelectedSignal, openPosition: setSelectedPosition, notice: setToast }}><div className="page-heading"><div><div className="page-kicker">{location.pathname === '/' ? `SESSION / ${date(data.status.sessionDate).toUpperCase()}` : 'MANI SIGNALS / WORKSPACE'}</div><h1>{page.title}</h1><p>{page.subtitle}</p></div></div><Routes><Route path="/" element={<DashboardPage />} /><Route path="/signals" element={<SignalsPage />} /><Route path="/positions" element={<PositionsPage />} /><Route path="/trades" element={<TradesPage />} /><Route path="/logs" element={<LogsPage />} /><Route path="/settings" element={<SettingsPage />} /><Route path="/profile" element={<ProfilePage />} /><Route path="*" element={<EmptyState title="Page not found" description="Choose a section from the navigation." />} /></Routes></DataContext.Provider>}</main>
     </div>
     {selectedSignal && <SignalDrawer signal={selectedSignal} close={() => setSelectedSignal(null)} />}
     {selectedPosition && <PositionDrawer position={selectedPosition} signal={data?.signals.find(signal => signal.id === selectedPosition.signalId)} close={() => setSelectedPosition(null)} />}

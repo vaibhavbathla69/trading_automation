@@ -8,13 +8,23 @@ export const mockDelay = async <T,>(value: T): Promise<T> => {
   return structuredClone(value)
 }
 
-let currentSettings: TradingSettings = structuredClone(mockSettings)
+const settingsStorageKey = 'meridian.trading-rules.preview'
+function initialSettings(): TradingSettings {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(settingsStorageKey) ?? 'null')
+    if (saved && typeof saved === 'object') return { ...structuredClone(mockSettings), ...saved }
+  } catch { /* Fall back to sample settings. */ }
+  return structuredClone(mockSettings)
+}
+
+let currentSettings: TradingSettings = initialSettings()
 let currentStatus: SystemStatus = structuredClone(mockSystemStatus)
 const listeners = new Set<(event: RealtimeEvent) => void>()
 
 export const mockStore = {
   getSettings: () => currentSettings,
   setSettings: (settings: TradingSettings) => {
+    window.localStorage.setItem(settingsStorageKey, JSON.stringify(settings))
     currentSettings = structuredClone(settings)
     mockStore.setStatus({ ...currentStatus, mode: settings.mode, tradingEnabled: settings.tradingEnabled && !currentStatus.emergencyStopped })
   },
