@@ -2,3 +2,10 @@ node_modules
 dist
 *.tsbuildinfo
 .env*
+!.env.example
+backend/.venv
+backend/__pycache__
+backend/server.log
+*.session
+*.session-journal
+*.db
