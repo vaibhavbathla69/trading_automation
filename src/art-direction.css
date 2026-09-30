@@ -15,6 +15,8 @@ body,.app-frame { background:var(--canvas); }
 .nav-item small { position:absolute; right:10px; top:5px; padding:1px 4px; color:#000; background:transparent; border:1px solid #000; border-radius:0; }
 .sidebar-bottom { padding:20px; }
 .sidebar-runtime { justify-content:center; border-color:#000; }
+.sidebar .nav-section-secondary { border-top:1px solid #000; }
+.sidebar .sidebar-runtime { border-top:1px solid #000; }
 .topbar { height:80px; padding:0 44px; background:var(--canvas); border:0; }
 .topbar-left { font-size:11px; letter-spacing:1.1px; color:#717482; }
 .topbar-left strong { color:#717482; font-weight:500; }
