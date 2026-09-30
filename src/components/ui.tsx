@@ -8,9 +8,10 @@ export function Badge({ children, tone = 'neutral', dot = false }: { children: R
 }
 
 export function stateTone(value: SignalState | string): 'neutral' | 'green' | 'amber' | 'red' | 'blue' | 'purple' {
-  if (['POSITION_OPEN', 'FILLED', 'TARGET_HIT', 'EXECUTED', 'CONNECTED', 'HEALTHY'].includes(value)) return 'green'
+  if (['POSITION_OPEN', 'PARTIALLY_EXITED'].includes(value)) return 'purple'
+  if (['FILLED', 'TARGET_HIT', 'EXECUTED', 'CONNECTED', 'HEALTHY'].includes(value)) return 'green'
   if (['WAITING_FOR_ENTRY', 'WAITING', 'ORDER_PENDING', 'ENTRY_TRIGGERED'].includes(value)) return 'blue'
-  if (['MANUAL_REVIEW', 'PARTIALLY_EXITED', 'DEGRADED', 'WARNING'].includes(value)) return 'amber'
+  if (['MANUAL_REVIEW', 'DEGRADED', 'WARNING'].includes(value)) return 'amber'
   if (['REJECTED', 'FAILED', 'STOP_LOSS_HIT', 'CRITICAL', 'DISCONNECTED', 'ERROR'].includes(value)) return 'red'
   return 'neutral'
 }

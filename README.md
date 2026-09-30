@@ -2,6 +2,8 @@
 
 Frontend-only admin dashboard for monitoring Telegram trading signals and configuring the rules used by a separate trading backend. The sample data is a fixed 30 September 2026 session in Indian Standard Time. No Telegram listener, broker connection, order execution, or market feed is implemented here.
 
+The [design review](docs/design-review.md) records the CRM research, dashboard choices, and status color language.
+
 ## Run
 
 ```bash
