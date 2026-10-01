@@ -1,166 +1,73 @@
 import asyncio
-import json
+import logging
+import os
 from contextlib import asynccontextmanager
-from datetime import date, datetime, timezone
-from uuid import uuid4
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 
-import realtime
+import alerts
+import broker
+import instruments
+import market_data
+import runtime_state
 import store
 import telegram_listener
+from routers import events, positions, settings, signals, system, trades
 
-runtime_state = {"tradingEnabled": True, "autoExecutionEnabled": True, "emergencyStopped": False}
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger(__name__)
+
+FRONTEND_ORIGINS = [o.strip() for o in os.environ.get("FRONTEND_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
+SCRIP_MASTER_REFRESH_SECONDS = 24 * 60 * 60
+
 _telegram_client = None
+_market_data_task = None
+_scrip_refresh_task = None
+
+
+async def _refresh_scrip_master_periodically():
+    while True:
+        await asyncio.sleep(SCRIP_MASTER_REFRESH_SECONDS)
+        instruments.load(force=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _telegram_client
+    global _telegram_client, _market_data_task, _scrip_refresh_task
     store.init_db()
+    runtime_state.load()
+    instruments.load()
+    broker.login()
     _telegram_client = await telegram_listener.start()
+    alerts.set_client(_telegram_client)
+    _market_data_task = asyncio.create_task(market_data.run())
+    _scrip_refresh_task = asyncio.create_task(_refresh_scrip_master_periodically())
+    log.info("AlgoTrade backend started")
     yield
+    _market_data_task.cancel()
+    _scrip_refresh_task.cancel()
     if _telegram_client:
         await _telegram_client.disconnect()
+    log.info("AlgoTrade backend shut down")
 
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ponytail: dev-only, restrict before any real deploy
+    allow_origins=FRONTEND_ORIGINS,  # set FRONTEND_ORIGINS env to the real frontend origin(s) in prod
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-@app.get("/api/signals")
-def list_signals():
-    return store.list_signals()
-
-
-@app.get("/api/signals/{signal_id}")
-def get_signal(signal_id: str):
-    signal = store.get_signal(signal_id)
-    if not signal:
-        raise HTTPException(404, "signal not found")
-    return signal
-
-
-@app.get("/api/positions")
-def list_positions():
-    return store.list_positions()
-
-
-@app.get("/api/positions/{position_id}")
-def get_position(position_id: str):
-    position = store.get_position(position_id)
-    if not position:
-        raise HTTPException(404, "position not found")
-    return position
-
-
-@app.get("/api/trades")
-def list_trades():
-    return store.list_trades()
-
-
-@app.get("/api/trades/{trade_id}")
-def get_trade(trade_id: str):
-    trade = store.get_trade(trade_id)
-    if not trade:
-        raise HTTPException(404, "trade not found")
-    return trade
-
-
-@app.get("/api/settings")
-def get_settings():
-    return store.get_settings()
-
-
-@app.put("/api/settings")
-def put_settings(patch: dict):
-    updated = store.update_settings(patch)
-    realtime.broadcast("system.updated", _system_status())
-    return updated
-
-
-@app.get("/api/system/status")
-def system_status():
-    return _system_status()
-
-
-@app.get("/api/system/logs")
-def system_logs():
-    return store.list_logs()
-
-
-@app.post("/api/system/actions")
-def system_action(body: dict):
-    action = body.get("action")
-    request_id = f"act_{uuid4().hex[:8]}"
-
-    if action == "PAUSE_NEW_TRADES":
-        runtime_state["tradingEnabled"] = False
-    elif action == "RESUME_NEW_TRADES":
-        runtime_state["tradingEnabled"] = True
-    elif action == "DISABLE_AUTO_EXECUTION":
-        runtime_state["autoExecutionEnabled"] = False
-    elif action == "ENABLE_AUTO_EXECUTION":
-        runtime_state["autoExecutionEnabled"] = True
-    elif action == "EMERGENCY_STOP":
-        runtime_state.update(tradingEnabled=False, autoExecutionEnabled=False, emergencyStopped=True)
-    elif action == "CLOSE_ALL_POSITIONS":
-        pass  # ponytail: no execution engine yet, nothing to close — see backend/README gap notes
-    else:
-        raise HTTPException(400, f"unknown action {action!r}")
-
-    log = {
-        "id": f"log_{uuid4().hex[:8]}", "at": datetime.now(timezone.utc).astimezone().isoformat(),
-        "level": "SYSTEM", "message": f"Admin action: {action}", "detail": None,
-        "signalId": None, "positionId": None,
-    }
-    store.insert_log(log)
-    realtime.broadcast("log.created", log)
-    realtime.broadcast("system.updated", _system_status())
-
-    return {"requestId": request_id, "accepted": True, "message": f"{action} applied"}
-
-
-@app.get("/api/events")
-async def events():
-    async def stream():
-        q = realtime.subscribe()
-        try:
-            while True:
-                payload = await q.get()
-                yield f"data: {payload}\n\n"
-        finally:
-            realtime.unsubscribe(q)
-
-    return StreamingResponse(stream(), media_type="text/event-stream")
-
-
-def _system_status() -> dict:
-    settings = store.get_settings()
-    tg_state = telegram_listener.get_state()
-    now = datetime.now(timezone.utc).astimezone().isoformat()
-    health = "CRITICAL" if runtime_state["emergencyStopped"] else ("HEALTHY" if tg_state["connected"] else "DEGRADED")
-    return {
-        "mode": settings["mode"],
-        "tradingEnabled": runtime_state["tradingEnabled"],
-        "autoExecutionEnabled": runtime_state["autoExecutionEnabled"],
-        "emergencyStopped": runtime_state["emergencyStopped"],
-        "broker": {"name": settings["broker"], "state": "DISCONNECTED", "checkedAt": now},
-        "telegram": {"name": settings["telegramSource"], "state": "CONNECTED" if tg_state["connected"] else "DISCONNECTED", "checkedAt": now},
-        "marketData": {"name": "Market feed", "state": "DISCONNECTED", "checkedAt": now},
-        "lastSignalAt": tg_state["last_signal_at"],
-        "backendAvailable": True,
-        "health": health,
-        "sessionDate": date.today().isoformat(),
-    }
+app.include_router(signals.router)
+app.include_router(positions.router)
+app.include_router(trades.router)
+app.include_router(settings.router)
+app.include_router(system.router)
+app.include_router(events.router)

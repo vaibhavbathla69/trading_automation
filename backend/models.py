@@ -1,4 +1,5 @@
 from typing import Literal, Optional
+
 from pydantic import BaseModel
 
 OptionType = Literal["CE", "PE"]
@@ -158,3 +159,28 @@ class AdminActionResponse(BaseModel):
     requestId: str
     accepted: bool
     message: str
+
+
+class TradingSettingsPatch(BaseModel):
+    """Same fields as TradingSettings, all optional — PUT /api/settings merges whatever is set."""
+    tradingEnabled: Optional[bool] = None
+    mode: Optional[SystemMode] = None
+    broker: Optional[str] = None
+    telegramSource: Optional[str] = None
+    sizingMethod: Optional[Literal["LOTS", "CAPITAL"]] = None
+    fixedLots: Optional[int] = None
+    capitalPerTrade: Optional[float] = None
+    maxTradesPerDay: Optional[int] = None
+    maxSimultaneousPositions: Optional[int] = None
+    maxCapitalDeployed: Optional[float] = None
+    maxDailyLoss: Optional[float] = None
+    maxEntrySlippagePercent: Optional[float] = None
+    maxSignalAgeSeconds: Optional[int] = None
+    rejectDuplicateSignals: Optional[bool] = None
+    maxEntryDistancePercent: Optional[float] = None
+    skipMovedPrice: Optional[bool] = None
+    orderType: Optional[Literal["MARKET", "LIMIT"]] = None
+    targetRule: Optional[Literal["EXIT_FIRST", "PARTIAL_FIRST", "HOLD_UPPER", "FOLLOW_UPDATES"]] = None
+    forceSquareOff: Optional[bool] = None
+    squareOffTime: Optional[str] = None
+    allowOvernight: Optional[bool] = None

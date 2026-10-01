@@ -9,3 +9,7 @@ backend/server.log
 *.session
 *.session-journal
 *.db
+backend/scrip_master.json
+backend/logs
+__pycache__/
+*.pyc

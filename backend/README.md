@@ -21,6 +21,13 @@ First run needs an interactive Telegram login (OTP, possibly 2FA) — run it in 
 - Expiry-date resolution (`parser.py`) hardcodes the Thursday-expiry NSE convention with no holiday calendar — good enough for scaffolding, revisit before this drives real execution.
 - `TG_CHANNEL` currently points at a test/dev channel with plain equity-format messages (not the options format above), used only to prove the ingest → store → API → SSE pipeline end to end. Point it at the real signal source once that channel/account is available — no code change needed, just `.env`.
 
+## Production deploy
+
+- Pin deps: `requirements.txt` is now version-pinned, not loose.
+- Set `ADMIN_API_TOKEN`, `FRONTEND_ORIGINS` (comma-separated real frontend origin(s), no `*`), `ADMIN_ALERT_CHAT` in `.env`.
+- Run under a supervisor so a crash doesn't leave positions unmanaged: `deploy/algotrade.service` (systemd, `Restart=always`). Copy to `/etc/systemd/system/`, fix paths, `systemctl enable --now algotrade`.
+- Run behind TLS (nginx/caddy reverse proxy) — the app itself serves plain HTTP.
+
 ## Frontend wiring
 
 Frontend currently calls in-memory mock modules under `src/api/`. Point those at `http://localhost:8000/api/...` (see the endpoint table in the root README) to go live — the response shapes already match `src/types.ts`.
