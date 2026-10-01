@@ -5,7 +5,7 @@ _subscribers: list[asyncio.Queue] = []
 
 
 def subscribe() -> asyncio.Queue:
-    q = asyncio.Queue()
+    q: asyncio.Queue = asyncio.Queue()
     _subscribers.append(q)
     return q
 
