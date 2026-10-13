@@ -98,8 +98,10 @@ def get_ltp(exchange: str, tradingsymbol: str, symboltoken: str) -> float | None
 
     try:
         resp = _client.ltpData(exchange, tradingsymbol, symboltoken)
-        if not resp.get("status"):
-            return None
+        if resp.get("success") is False or not resp.get("status", True):
+            # Angel One returns invalid/expired-token errors as a 200 response
+            # (e.g. {'success': False, 'errorCode': 'AG8001', ...}), not an exception.
+            raise RuntimeError(resp.get("message", "ltpData error"))
         return float(resp["data"]["ltp"])
     except Exception as exc:
         # session likely expired (daily JWT) or broker API down — flip disconnected so the
